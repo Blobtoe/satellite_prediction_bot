@@ -64,6 +64,7 @@ def update_tle():
     TLE_LAST_UPDATED = datetime.now().timestamp()
 
 #parse arguments from command
+#this is digusting
 def parse_args(command):
     command = command.replace("'", '"').split("\"")
     sat_name = command[1].strip()
@@ -82,12 +83,6 @@ def parse_args(command):
         lon = lat_lon[1].strip()
         alt = lat_lon[2].strip()
 
-    print(sat_name)
-    print(lat)
-    print(lon)
-    print(alt)
-    print(pass_count)
-
     return sat_name, (int(lat), int(lon)*-1, int(alt)), int(pass_count)
 
 @client.event
@@ -100,13 +95,6 @@ async def on_message(message):
     if message.content.startswith("!predict"):
         command = message.content[9:]
 
-        #handle closing the bot
-        if command == "close":
-            await message.channel.send("Exiting...")
-            await client.close()
-            exit()
-
-        #handle updating the tle
         elif "-u" in command:
             update_tle()
             command.replace("-u", "")
@@ -115,6 +103,7 @@ async def on_message(message):
         if "-h" in command:
             command.replace("-h", "")
             await message.channel.send(embed=discord.Embed.from_dict(HELP_MSG))
+
 
         #handle prediction commands
         print(command.strip())
