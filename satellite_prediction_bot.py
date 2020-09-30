@@ -2,7 +2,7 @@ import discord, predict, requests, geopy
 from datetime import datetime
 from geopy.geocoders import Nominatim
 
-TOKEN = open("./satellite_discord_bot_secret.txt").read()
+TOKEN = open("./satellite_prediction_bot_secret.txt").read()
 
 client = discord.Client()
 
