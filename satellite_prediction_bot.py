@@ -2,7 +2,7 @@ import discord, predict, requests, geopy
 from datetime import datetime
 from geopy.geocoders import Nominatim
 
-TOKEN = "NzYwNzE5MjUwMTg4NjY0OTMz.X3QJAg.aFAIzJaoQpg-GzsdWfvn48srjbA"
+TOKEN = open("./satellite_discord_bot_secret.txt").read()
 
 client = discord.Client()
 
@@ -21,7 +21,7 @@ HELP_MSG = {
         },
         {
             "name": "<loc>",
-            "value": "lat/lon/alt information in format (<lat>,<lon>,<alt>)"
+            "value": "formatted (<lat>,<lon>,<alt>) information"
         },
         {
             "name": "<place>",
@@ -38,6 +38,10 @@ HELP_MSG = {
         {
             "name": "-h",
             "value": "show usage and command information"
+        },
+        {
+            "name": "Examples:",
+            "value": "!predict \"NOAA 19\" (49,-123,20) 2\n !predict \"ISS (ZARYA)\" \"vancouver, canada\" 10"
         }
     ]
 }
@@ -97,7 +101,7 @@ async def on_message(message):
         command = message.content[9:]
 
         #handle closing the bot
-        if "".join(command) == "close":
+        if command == "close":
             await message.channel.send("Exiting...")
             await client.close()
             exit()
@@ -113,6 +117,7 @@ async def on_message(message):
             await message.channel.send(embed=discord.Embed.from_dict(HELP_MSG))
 
         #handle prediction commands
+        print(command.strip())
         if len(command.strip()) > 0:
             #update the tle if it hasn't been updated in 12 hours
             if TLE_LAST_UPDATED == 0 or datetime.now().timestamp() - TLE_LAST_UPDATED > 43200:
