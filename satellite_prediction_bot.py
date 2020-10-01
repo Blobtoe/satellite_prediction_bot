@@ -1,6 +1,7 @@
-import discord, predict, requests, geopy
+import discord, predict, requests, geopy, difflib, pytz
 from datetime import datetime
 from geopy.geocoders import Nominatim
+from timezonefinder import TimezoneFinder
 
 TOKEN = open("./satellite_prediction_bot_secret.txt").read()
 
@@ -12,7 +13,7 @@ TLE_LAST_UPDATED = 0
 GEOLOCATOR = Nominatim(user_agent="Satellite Prediction Bot")
 
 HELP_MSG = {
-    "title": "Usage: !predict \"<sat>\" <loc>|\"<place>\" <num> [-u] [-h]",
+    "title": "Usage: !predict \"<sat>\" <loc>|\"<place>\" [<num>] [-u] [-h]",
     "description": "where:",
     "fields": [
         {
@@ -74,16 +75,22 @@ def parse_args(command):
         lat = location.latitude
         lon = location.longitude
         alt = location.altitude
-        pass_count = command[4].strip()
+        if command[4]:
+            pass_count = command[4].strip()
+        else:
+            pass_count = 1
     else:
         command = "".join(command[2:]).split(")")
-        pass_count = command[1].strip()
         lat_lon = command[0].split("(")[1].split(",")
         lat = lat_lon[0].strip()
         lon = lat_lon[1].strip()
         alt = lat_lon[2].strip()
+        if command[1]:
+            pass_count = command[1].strip()
+        else:
+            pass_count = 1
 
-    return sat_name, (int(lat), int(lon)*-1, int(alt)), int(pass_count)
+    return sat_name, (int(lat), int(lon), int(alt)), int(pass_count)
 
 @client.event
 async def on_ready():
@@ -95,7 +102,7 @@ async def on_message(message):
     if message.content.startswith("!predict"):
         command = message.content[9:]
 
-        elif "-u" in command:
+        if "-u" in command:
             update_tle()
             command.replace("-u", "")
             await message.channel.send("TLE updated")
@@ -116,11 +123,22 @@ async def on_message(message):
             #get command arguments
             sat_name, loc, pass_count = parse_args(command)
 
+            names = [name.strip() for name in open(TLE_FILE).read().split("\n")[0::3]]
+            matches = difflib.get_close_matches(sat_name.upper(), names)
+            if len(matches) == 0:
+                await message.channel.send("Error: Failed to find satellite")
+                return
+            sat_name = matches[0]
+
             #find the tle for the specifed sat in the tle file
             tle = find_sat_in_tle(sat_name, TLE_FILE)
 
+            tf = TimezoneFinder()
+            tz = tf.timezone_at(lat=loc[0], lng=loc[1])
+            utc_offset = datetime.now(pytz.timezone(tz)).strftime("%z")
+
             #predict the passes and add them to a list
-            p = predict.transits(tle, loc)
+            p = predict.transits(tle, (loc[0], loc[1]*-1, loc[2]))
             passes = []
             for i in range(pass_count):
                 transit = next(p)
@@ -137,10 +155,12 @@ async def on_message(message):
                 })
 
             #respond with an embeded message
-            response = discord.Embed(title=sat_name + " Passes")
+            response = discord.Embed(title=sat_name + " passes over {} [UTC{}]".format(str(loc), utc_offset))
             for ps in passes:
+                delta = datetime.utcfromtimestamp(ps['start']) - datetime.utcnow()
+                hours, minutes = divmod(delta.seconds/60, 60)
                 response.add_field(
-                    name=datetime.utcfromtimestamp(ps['start']).strftime("%B %-d, %Y at %-H:%M:%S UTC"), 
+                    name=datetime.utcfromtimestamp(ps['start']).strftime("%B %-d, %Y at %-H:%M:%S UTC") + " (in {} hours and {} minutes)".format(round(hours), round(minutes)), 
                     value="Peak Elevation: {}\nDuration: {}\nAzimuth: {}\nEnd: {}".format(ps['peak_elevation'], ps['duration'], ps['azimuth'], datetime.utcfromtimestamp(ps['end']).strftime("%B %-d, %Y at %-H:%M:%S UTC")),
                     inline=False
                     )
