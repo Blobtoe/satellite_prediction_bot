@@ -30,7 +30,7 @@ HELP_MSG = {
         },
         {
             "name": "<num>",
-            "value": "number of passes to predict"
+            "value": "number of passes to predict (default: 1)"
         },
         {
             "name": "-u",
@@ -44,7 +44,10 @@ HELP_MSG = {
             "name": "Examples:",
             "value": "!predict \"NOAA 19\" (49,-123,20) 2\n !predict \"ISS (ZARYA)\" \"vancouver, canada\" 10"
         }
-    ]
+    ],
+    "footer" : {
+        "text": "Ping or message @Blobtoe with any concerns."
+    }
 }
 
 
@@ -95,6 +98,7 @@ def parse_args(command):
 @client.event
 async def on_ready():
     print('logged in to Discord as {} {}\n'.format(client.user.name, client.user.id))
+    await client.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="!predict -h"))
 
 
 @client.event
@@ -113,7 +117,6 @@ async def on_message(message):
 
 
         #handle prediction commands
-        print(command.strip())
         if len(command.strip()) > 0:
             #update the tle if it hasn't been updated in 12 hours
             if TLE_LAST_UPDATED == 0 or datetime.now().timestamp() - TLE_LAST_UPDATED > 43200:
@@ -142,8 +145,9 @@ async def on_message(message):
             passes = []
             for i in range(pass_count):
                 transit = next(p)
-                while transit.peak()["elevation"] < 20:
-                    transit = next(p)
+
+                #while transit.peak()["elevation"] < 20:
+                #    transit = next(p)
 
                 passes.append({
                     "satellite": sat_name,
