@@ -121,6 +121,9 @@ async def on_message(message):
         if len(command.strip()) > 0:
             try:
                 await message.delete()
+            except:
+                await message.channel.send("Cannot Delete Message: Missing Permissions")
+            try:
                 #update the tle if it hasn't been updated in 12 hours
                 if TLE_LAST_UPDATED == 0 or datetime.now().timestamp() - TLE_LAST_UPDATED > 43200:
                     update_tle()
@@ -128,9 +131,7 @@ async def on_message(message):
 
                 #get command arguments
                 sat_name, loc, pass_count = parse_args(command)
-                print(type(loc))
                 loc = (round(loc[0] + randint(-10, 10) / 100, 4), round(loc[1] + randint(-10, 10) / 100, 4), round(loc[2] + randint(-10, 10), 4))
-                print(loc)
 
                 names = [name.strip() for name in open(TLE_FILE).read().split("\n")[0::3]]
                 matches = difflib.get_close_matches(sat_name.upper(), names)
@@ -161,7 +162,7 @@ async def on_message(message):
                         "end": round(transit.end + randint(-30, 30)),
                         "peak_elevation": round(transit.peak()['elevation'] + (randint(-20, 20) / 10), 1),
                         "duration": round(transit.duration()),
-                        "azimuth": round(transit.at(transit.start)['azimuth'] + (randint(-4, 4) / 10), 1)
+                        "azimuth": round(transit.at(transit.start)['azimuth'] + (randint(-20, 20) / 10), 1)
                     })
 
                 #respond with an embeded message
