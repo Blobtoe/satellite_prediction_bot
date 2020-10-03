@@ -2,6 +2,8 @@ import discord, predict, requests, geopy, difflib, pytz
 from datetime import datetime
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
+from random import randint
+import operator
 
 TOKEN = open("./satellite_prediction_bot_secret.txt").read()
 
@@ -42,7 +44,7 @@ HELP_MSG = {
         },
         {
             "name": "Examples:",
-            "value": "!predict \"NOAA 19\" (49,-123,20) 2\n !predict \"ISS (ZARYA)\" \"vancouver, canada\" 10"
+            "value": "!predict \"noaa19\" (49,-123,20) 2\n !predict \"iss zarya\" \"vancouver, canada\" 10"
         }
     ],
     "footer" : {
@@ -93,7 +95,7 @@ def parse_args(command):
         else:
             pass_count = 1
 
-    return sat_name, (int(lat), int(lon), int(alt)), int(pass_count)
+    return sat_name, (float(lat), float(lon), float(alt)), int(pass_count)
 
 @client.event
 async def on_ready():
@@ -108,67 +110,74 @@ async def on_message(message):
 
         if "-u" in command:
             update_tle()
-            command.replace("-u", "")
+            command = command.replace("-u", "")
             await message.channel.send("TLE updated")
 
         if "-h" in command:
-            command.replace("-h", "")
+            command = command.replace("-h", "")
             await message.channel.send(embed=discord.Embed.from_dict(HELP_MSG))
-
 
         #handle prediction commands
         if len(command.strip()) > 0:
-            #update the tle if it hasn't been updated in 12 hours
-            if TLE_LAST_UPDATED == 0 or datetime.now().timestamp() - TLE_LAST_UPDATED > 43200:
-                update_tle()
-                await message.channel.send("TLE updated")
+            try:
+                await message.delete()
+                #update the tle if it hasn't been updated in 12 hours
+                if TLE_LAST_UPDATED == 0 or datetime.now().timestamp() - TLE_LAST_UPDATED > 43200:
+                    update_tle()
+                    await message.channel.send("TLE updated")
 
-            #get command arguments
-            sat_name, loc, pass_count = parse_args(command)
+                #get command arguments
+                sat_name, loc, pass_count = parse_args(command)
+                print(type(loc))
+                loc = (round(loc[0] + randint(-10, 10) / 100, 4), round(loc[1] + randint(-10, 10) / 100, 4), round(loc[2] + randint(-10, 10), 4))
+                print(loc)
 
-            names = [name.strip() for name in open(TLE_FILE).read().split("\n")[0::3]]
-            matches = difflib.get_close_matches(sat_name.upper(), names)
-            if len(matches) == 0:
-                await message.channel.send("Error: Failed to find satellite")
-                return
-            sat_name = matches[0]
+                names = [name.strip() for name in open(TLE_FILE).read().split("\n")[0::3]]
+                matches = difflib.get_close_matches(sat_name.upper(), names)
+                if len(matches) == 0:
+                    await message.channel.send("Error: Failed to find satellite")
+                    return
+                sat_name = matches[0]
 
-            #find the tle for the specifed sat in the tle file
-            tle = find_sat_in_tle(sat_name, TLE_FILE)
+                #find the tle for the specifed sat in the tle file
+                tle = find_sat_in_tle(sat_name, TLE_FILE)
 
-            tf = TimezoneFinder()
-            tz = tf.timezone_at(lat=loc[0], lng=loc[1])
-            utc_offset = datetime.now(pytz.timezone(tz)).strftime("%z")
+                tf = TimezoneFinder()
+                tz = tf.timezone_at(lat=loc[0], lng=loc[1])
+                utc_offset = datetime.now(pytz.timezone(tz)).strftime("%z")
 
-            #predict the passes and add them to a list
-            p = predict.transits(tle, (loc[0], loc[1]*-1, loc[2]))
-            passes = []
-            for i in range(pass_count):
-                transit = next(p)
+                #predict the passes and add them to a list
+                p = predict.transits(tle, (loc[0], loc[1]*-1, loc[2]))
+                passes = []
+                for i in range(pass_count):
+                    transit = next(p)
 
-                #while transit.peak()["elevation"] < 20:
-                #    transit = next(p)
+                    #while transit.peak()["elevation"] < 20:
+                    #    transit = next(p)
 
-                passes.append({
-                    "satellite": sat_name,
-                    "start": round(transit.start),
-                    "end": round(transit.end),
-                    "peak_elevation": round(transit.peak()['elevation'], 1),
-                    "duration": round(transit.duration()),
-                    "azimuth": round(transit.at(transit.start)['azimuth'], 1)
-                })
+                    passes.append({
+                        "satellite": sat_name,
+                        "start": round(transit.start + randint(-30, 30)),
+                        "end": round(transit.end + randint(-30, 30)),
+                        "peak_elevation": round(transit.peak()['elevation'] + (randint(-20, 20) / 10), 1),
+                        "duration": round(transit.duration()),
+                        "azimuth": round(transit.at(transit.start)['azimuth'] + (randint(-4, 4) / 10), 1)
+                    })
 
-            #respond with an embeded message
-            response = discord.Embed(title=sat_name + " passes over {} [UTC{}]".format(str(loc), utc_offset))
-            for ps in passes:
-                delta = datetime.utcfromtimestamp(ps['start']) - datetime.utcnow()
-                hours, minutes = divmod(delta.seconds/60, 60)
-                response.add_field(
-                    name=datetime.utcfromtimestamp(ps['start']).strftime("%B %-d, %Y at %-H:%M:%S UTC") + " (in {} hours and {} minutes)".format(round(hours), round(minutes)), 
-                    value="Peak Elevation: {}\nDuration: {}\nAzimuth: {}\nEnd: {}".format(ps['peak_elevation'], ps['duration'], ps['azimuth'], datetime.utcfromtimestamp(ps['end']).strftime("%B %-d, %Y at %-H:%M:%S UTC")),
-                    inline=False
-                    )
-            await message.channel.send(embed=response)
+                #respond with an embeded message
+                response = discord.Embed(title=sat_name + " passes over {} [UTC{}]".format(str(loc), utc_offset))
+                for ps in passes:
+                    delta = datetime.utcfromtimestamp(ps['start']) - datetime.utcnow()
+                    hours, minutes = divmod(delta.seconds/60, 60)
+                    response.add_field(
+                        name=datetime.utcfromtimestamp(ps['start']).strftime("%B %-d, %Y at %-H:%M:%S UTC") + " (in {} hours and {} minutes)".format(round(hours), round(minutes)), 
+                        value="Peak Elevation: {}\nDuration: {}\nAzimuth: {}\nEnd: {}".format(ps['peak_elevation'], ps['duration'], ps['azimuth'], datetime.utcfromtimestamp(ps['end']).strftime("%B %-d, %Y at %-H:%M:%S UTC")),
+                        inline=False
+                        )
+                await message.channel.send(embed=response)
+            except Exception as e:
+                await message.channel.send("Something went wrong. Use `!predict -h` for help.")
+                print(e)
             
 
 client.run(TOKEN)
