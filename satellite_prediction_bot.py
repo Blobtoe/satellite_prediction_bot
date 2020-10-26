@@ -1,11 +1,13 @@
-import discord, predict, requests, geopy, difflib, pytz
+import discord, predict, requests, geopy, difflib, pytz, json, os
 from datetime import datetime
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
 from random import randint
-import operator
 
-TOKEN = open("./satellite_prediction_bot_secret.txt").read()
+with open("secrets.json") as f:
+    data = json.load(f)
+    TOKEN = data["discord"]
+    mapquest_key = data["mapquest"]
 
 client = discord.Client()
 
@@ -156,18 +158,42 @@ async def on_message(message):
                     #while transit.peak()["elevation"] < 20:
                     #    transit = next(p)
 
+                    aos = round(transit.start + randint(-30, 30))
+                    tca = round(transit.peak()["epoch"] + randint(-30, 30))
+                    los = round(transit.end + randint(-30, 30))
+
+                    #get map image url
+                    url = ""
+                    if pass_count == 1:
+                        start = predict.observe(tle, loc, at=aos)
+                        middle = predict.observe(tle, loc, at=tca)
+                        end = predict.observe(tle, loc, at=los)
+
+                        url = "https://www.mapquestapi.com/staticmap/v5/map?start={},{}&end={},{}&locations={},{}&size=600,400@2x&key={}&routeArc=true&format=jpg70".format(start["latitude"], start["longitude"]-360, end["latitude"], end["longitude"]-360, middle["latitude"], middle["longitude"]-360, mapquest_key)
+                        
+                        data = requests.get(url).content
+                        with open("temp-map.jpg", "wb") as image:
+                            image.write(data)
+
                     passes.append({
                         "satellite": sat_name,
-                        "start": round(transit.start + randint(-30, 30)),
-                        "end": round(transit.end + randint(-30, 30)),
+                        "start": aos,
+                        "middle": tca,
+                        "end": los,
+                        "url": url,
                         "peak_elevation": round(transit.peak()['elevation'] + (randint(-20, 20) / 10), 1),
                         "duration": round(transit.duration()),
-                        "azimuth": round(transit.at(transit.start)['azimuth'] + (randint(-20, 20) / 10), 1)
+                        "azimuth": round(transit.at(transit.start)['azimuth'] + (randint(-20, 20) / 10), 1) 
                     })
 
                 #respond with an embeded message
+                image_file = None
                 response = discord.Embed(title=sat_name + " passes over {} [UTC{}]".format(str(loc), utc_offset))
                 for ps in passes:
+                    if ps["url"] != "":
+                        image_file = discord.File("temp-map.jpg", filename="map.jpg")
+                        response.set_image(url="attachment://map.jpg")
+
                     delta = datetime.utcfromtimestamp(ps['start']) - datetime.utcnow()
                     hours, minutes = divmod(delta.seconds/60, 60)
                     response.add_field(
@@ -175,9 +201,11 @@ async def on_message(message):
                         value="Peak Elevation: {}\nDuration: {}\nAzimuth: {}\nEnd: {}".format(ps['peak_elevation'], ps['duration'], ps['azimuth'], datetime.utcfromtimestamp(ps['end']).strftime("%B %-d, %Y at %-H:%M:%S UTC")),
                         inline=False
                         )
-                await message.channel.send(embed=response)
+                await message.channel.send(file=image_file, embed=response)
+
+                os.remove("temp-map.jpg")
             except Exception as e:
-                await message.channel.send("Something went wrong. Use `!predict -h` for help.")
+                await message.channel.send("Oops! Something went wrong. Use `!predict -h` for help.")
                 print(e)
             
 
