@@ -203,7 +203,8 @@ async def on_message(message):
                         )
                 await message.channel.send(file=image_file, embed=response)
 
-                os.remove("temp-map.jpg")
+                if os.path.isfile("temp-map.jpg"):
+                    os.remove("temp-map.jpg")
             except Exception as e:
                 await message.channel.send("Oops! Something went wrong. Use `!predict -h` for help.")
                 print(e)
