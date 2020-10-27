@@ -17,8 +17,8 @@ TLE_LAST_UPDATED = 0
 GEOLOCATOR = Nominatim(user_agent="Satellite Prediction Bot")
 
 HELP_MSG = {
-    "title": "Usage: !predict \"<sat>\" <loc>|\"<place>\" [<num>] [-u] [-h]",
-    "description": "where:",
+    "title": "Usage: !predict \"<sat>\" (<loc>)||\"<place>\" [<num>] [-u] [-h]",
+    "description": """A bot for predicting satellite passes over a location. Please do not use your precise location if you do not want others knowing it. Even if you do, the bot will slightly randomize values to protect against doxxing. As a result, the values this bot provides are not very precise and should only be used for rough estimations.\n\n**where:**""",
     "fields": [
         {
             "name": "<sat>",
@@ -26,31 +26,31 @@ HELP_MSG = {
         },
         {
             "name": "<loc>",
-            "value": "formatted (<lat>,<lon>,<alt>) information"
+            "value": "location information formatted in (<lat>,<lon>,<alt>)"
         },
         {
             "name": "<place>",
             "value": "a location search term"
         },
         {
-            "name": "<num>",
+            "name": "<num> [optional]",
             "value": "number of passes to predict (default: 1)"
         },
         {
-            "name": "-u",
-            "value": "manually update TLE"
+            "name": "-u [optional]",
+            "value": "manually update TLE (automatically updates every 12 hours)"
         },
         {
-            "name": "-h",
+            "name": "-h [optional]",
             "value": "show usage and command information"
         },
         {
             "name": "Examples:",
-            "value": "!predict \"noaa19\" (49,-123,20) 2\n !predict \"iss zarya\" \"vancouver, canada\" 10"
+            "value": "!predict \"noaa19\" (49,-123,20)\n !predict \"iss zarya\" \"vancouver, canada\" 10"
         }
     ],
     "footer" : {
-        "text": "Ping or message @Blobtoe with any concerns."
+        "text": "Ping or message @Blobtoe with any questions or concerns."
     }
 }
 
