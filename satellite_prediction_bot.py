@@ -169,7 +169,7 @@ async def on_message(message):
                         middle = predict.observe(tle, loc, at=tca)
                         end = predict.observe(tle, loc, at=los)
 
-                        url = "https://www.mapquestapi.com/staticmap/v5/map?start={},{}&end={},{}&locations={},{}&size=600,400@2x&key={}&routeArc=true&format=jpg70".format(start["latitude"], start["longitude"]-360, end["latitude"], end["longitude"]-360, middle["latitude"], middle["longitude"]-360, mapquest_key)
+                        url = "https://www.mapquestapi.com/staticmap/v5/map?start={},{}&end={},{}&locations={},{}&size=600,400@2x&key={}&routeArc=true&format=jpg70&zoom=3".format(start["latitude"], start["longitude"]-360, end["latitude"], end["longitude"]-360, middle["latitude"], middle["longitude"]-360, mapquest_key)
                         
                         data = requests.get(url).content
                         with open("temp-map.jpg", "wb") as image:
